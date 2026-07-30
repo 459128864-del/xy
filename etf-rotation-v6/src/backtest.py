@@ -12,6 +12,38 @@ from .scoring import score_factors
 from .factors import calculate_factors
 
 
+def build_execution_schedule(
+    target_matrix: pd.DataFrame,
+    rebalance_frequency: int,
+) -> dict[pd.Timestamp, tuple[pd.Timestamp, pd.Series]]:
+    """Map each rebalance signal to the next available close execution."""
+    schedule: dict[pd.Timestamp, tuple[pd.Timestamp, pd.Series]] = {}
+    dates = target_matrix.index
+    for signal_index in range(0, len(dates), rebalance_frequency):
+        execution_index = signal_index + 1
+        if execution_index >= len(dates):
+            continue
+        signal_date = dates[signal_index]
+        execution_date = dates[execution_index]
+        schedule[execution_date] = (signal_date, target_matrix.loc[signal_date].copy())
+    return schedule
+
+
+def drift_weights(
+    previous_weights: pd.Series,
+    asset_returns: pd.Series,
+) -> pd.Series:
+    """Return pre-trade close weights after asset returns and zero-return cash."""
+    aligned_returns = asset_returns.reindex(previous_weights.index).fillna(0.0)
+    cash_weight = 1.0 - float(previous_weights.sum())
+    portfolio_gross_factor = cash_weight + float(
+        (previous_weights * (1.0 + aligned_returns)).sum()
+    )
+    if portfolio_gross_factor <= 0.0:
+        raise ValueError("portfolio gross value must remain positive")
+    return previous_weights * (1.0 + aligned_returns) / portfolio_gross_factor
+
+
 def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
     strategy = config["strategy"]
     factor_cfg = config["factors"]
@@ -46,24 +78,73 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
     target_matrix = targets.pivot(index="date", columns="symbol", values="weight")
     target_matrix = target_matrix.reindex(index=returns.index, columns=returns.columns).fillna(0.0)
     rebalance = int(strategy["rebalance_frequency"])
-    mask = pd.Series(np.arange(len(target_matrix)) % rebalance == 0, index=target_matrix.index)
-    held_targets = target_matrix.where(mask, np.nan).ffill().fillna(0.0)
-    positions = held_targets.shift(1).fillna(0.0)
+    execution_schedule = build_execution_schedule(target_matrix, rebalance)
 
     guard = DrawdownGuard(risk_cfg["max_portfolio_drawdown"], risk_cfg["cooldown_days"])
     equity = 1.0
-    previous = pd.Series(0.0, index=positions.columns)
+    current_weights = pd.Series(0.0, index=returns.columns)
+    current_target = pd.Series(0.0, index=returns.columns)
+    current_risk_multiplier = 1.0
     records = []
+    execution_events: list[dict[str, object]] = []
+    epsilon = 1e-12
+    previous_date = pd.NaT
     for date in returns.index:
-        desired = positions.loc[date] * guard.exposure_multiplier(equity)
-        turnover = (desired - previous).abs().sum()
-        daily_return = float((desired * returns.loc[date]).sum())
+        # The weights held before this close earn the return ending at this close.
+        daily_return = float((current_weights * returns.loc[date]).sum())
+        pre_trade_weights = drift_weights(current_weights, returns.loc[date])
+
+        signal_date = None
+        if date in execution_schedule:
+            signal_date, current_target = execution_schedule[date]
+
+        risk_multiplier = guard.exposure_multiplier(equity)
+        risk_signal_date = previous_date if risk_multiplier != current_risk_multiplier else None
+        should_trade = signal_date is not None or risk_signal_date is not None
+
+        # Orders execute at this close and only affect the next close-to-close return.
+        desired = (
+            current_target * risk_multiplier
+            if should_trade
+            else pre_trade_weights
+        )
+        weight_changes = desired - pre_trade_weights
+        turnover = float(weight_changes.abs().sum()) if should_trade else 0.0
         net_return = daily_return - turnover * float(risk_cfg["transaction_cost"])
         equity *= 1.0 + net_return
-        records.append((date, net_return, equity, turnover))
-        previous = desired
+        records.append((date, previous_date, date, net_return, equity, turnover))
 
-    curve = pd.DataFrame(records, columns=["date", "return", "equity", "turnover"])
+        event_signal_date = signal_date if signal_date is not None else risk_signal_date
+        if should_trade:
+            for asset in weight_changes.index[weight_changes.abs().gt(epsilon)]:
+                execution_events.append({
+                    "signal_date": event_signal_date,
+                    "execution_date": date,
+                    "previous_weight": float(pre_trade_weights[asset]),
+                    "target_weight": float(desired[asset]),
+                    "asset": asset,
+                    "execution_price_type": "close",
+                })
+        current_weights = desired
+        current_risk_multiplier = risk_multiplier
+        previous_date = date
+
+    curve = pd.DataFrame(records, columns=[
+        "date",
+        "return_start_date",
+        "return_end_date",
+        "return",
+        "equity",
+        "turnover",
+    ])
+    events = pd.DataFrame(execution_events, columns=[
+        "signal_date",
+        "execution_date",
+        "previous_weight",
+        "target_weight",
+        "asset",
+        "execution_price_type",
+    ])
     drawdown = curve["equity"].div(curve["equity"].cummax()).sub(1.0)
     volatility = curve["return"].std(ddof=0)
     metrics = {
@@ -74,4 +155,10 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
         "max_drawdown": float(drawdown.min()),
         "average_turnover": float(curve["turnover"].mean()),
     }
-    return {"metrics": metrics, "equity_curve": curve, "targets": targets, "scores": scored}
+    return {
+        "metrics": metrics,
+        "equity_curve": curve,
+        "execution_events": events,
+        "targets": targets,
+        "scores": scored,
+    }
