@@ -12,5 +12,8 @@ __pycache__/
 # Node.js
 node_modules/
 
+# Local runtime portfolio data
+/data/
+
 # macOS
 .DS_Store
