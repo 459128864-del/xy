@@ -1,0 +1,99 @@
+{
+  "validation_status": "blocked",
+  "baseline_frozen": false,
+  "baseline_type": "none",
+  "data_scope": "sample_only",
+  "investment_effectiveness_evaluable": false,
+  "freeze_recommendation": "C. 暂不冻结",
+  "disclaimer": "工程验证，不代表真实投资效果",
+  "metric_interpretation": "短样本机械年化；非正式基准；不具备投资解释力",
+  "branch": "codex/v6-baseline-validation",
+  "git_commit": "d3c200e1d0052efa422066128d4ad08c80180635",
+  "data": {
+    "source": "data/sample/etf_sample.csv（示例数据；原始来源待确认）",
+    "start_date": "2024-01-02",
+    "end_date": "2024-01-29",
+    "observations": 20,
+    "symbols": ["A", "B", "C"],
+    "frequency": "日线",
+    "adjustment": null,
+    "adjustment_status": "待确认"
+  },
+  "metrics": {
+    "cumulative_return": 0.04601340366504836,
+    "annualized_return": 0.7626632316652118,
+    "annualized_return_note": "由20个交易日机械年化，仅作工程输出",
+    "max_drawdown": -0.010637565998808163,
+    "sharpe_ratio": 6.3293682892498,
+    "calmar_ratio": 71.69527613277745,
+    "calmar_ratio_note": "使用短样本机械年化收益计算，仅作工程输出",
+    "annualized_volatility": 0.09029643742598081,
+    "win_rate": 0.47368421052631576,
+    "win_rate_definition": "19个非零日收益中正收益日占比",
+    "profit_loss_ratio": 4.727721373607708,
+    "profit_loss_ratio_definition": "非零日收益的平均正收益/平均负收益绝对值",
+    "average_turnover": 0.11750000000000001,
+    "total_turnover": 2.35,
+    "turnover_event_count": 4,
+    "trade_count": null,
+    "trade_count_status": "数据不足：回测器未输出逐笔成交记录",
+    "average_holding_period": null,
+    "average_holding_period_status": "数据不足：回测器未输出持仓批次或成交记录",
+    "worst_annual_return": null,
+    "worst_annual_return_status": "数据不足：样本不足一个自然年",
+    "benchmark_return": null,
+    "benchmark_return_status": "待确认：配置和数据未定义基准指数",
+    "excess_return": null,
+    "excess_return_status": "待确认：缺少基准收益"
+  },
+  "costs": {
+    "transaction_cost_rate": 0.0005,
+    "transaction_cost_applied": true,
+    "arithmetic_sum_of_turnover_cost_fractions": 0.001175,
+    "slippage_rate": null,
+    "slippage_applied": false
+  },
+  "execution": {
+    "documented_signal_time": "T日收盘",
+    "documented_execution_time": "T+1交易，具体成交价格待确认",
+    "implemented_return_alignment": "T日目标权重经shift(1)后乘以T至T+1的收盘收益",
+    "same_close_execution_effect": true,
+    "time_alignment_status": "失败：经济含义等同于需要按T日收盘成交"
+  },
+  "risk_limits": {
+    "total_exposure_limit_applied": true,
+    "single_etf_limit": 0.5,
+    "single_etf_limit_applied": true,
+    "regime_exposure_applied_to_portfolio": true,
+    "regime_exposure": {
+      "attack": 1.0,
+      "balanced": 0.7,
+      "defense": 0.35
+    }
+  },
+  "lookahead_and_leakage": {
+    "direct_future_row_access_found_in_factor_calculation": false,
+    "existing_factor_test_passed": true,
+    "full_pipeline_coverage": false,
+    "data_leakage_status": "未发现直接未来数据读取，但成交时间错位且完整链路未被测试，不能认定无泄漏风险"
+  },
+  "reproducibility": {
+    "status": "passed",
+    "runs": 2,
+    "metrics_files_identical": true,
+    "equity_curve_files_identical": true
+  },
+  "blocking_findings": [
+    "T日收盘生成的权重经shift后乘以T至T+1的收盘收益，经济含义等同于按T日收盘成交，不满足最早T+1交易要求",
+    "滑点未配置且未进入收益计算",
+    "minimum_history配置未被策略代码使用",
+    "现有测试未覆盖信号日与实际成交日"
+  ],
+  "blocking_items": [
+    "incorrect_execution_timing",
+    "slippage_not_implemented",
+    "minimum_history_not_enforced",
+    "missing_factor_ranking_risk",
+    "insufficient_sample_data"
+  ]
+}
