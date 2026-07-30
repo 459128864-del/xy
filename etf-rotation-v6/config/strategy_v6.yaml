@@ -1,0 +1,35 @@
+strategy:
+  name: etf-rotation-v6
+  rebalance_frequency: 5
+  top_n: 2
+  minimum_history: 10
+
+factors:
+  momentum_windows: [3, 5, 10]
+  momentum_weights: [0.25, 0.35, 0.40]
+  skip_recent: 1
+  efficiency_window: 10
+  volatility_window: 5
+  drawdown_window: 10
+  weights:
+    momentum: 0.50
+    efficiency: 0.20
+    low_volatility: 0.15
+    low_drawdown: 0.15
+
+regime:
+  trend_window: 10
+  breadth_threshold: 0.55
+  exposure:
+    attack: 1.00
+    balanced: 0.70
+    defense: 0.35
+
+portfolio:
+  max_position: 0.50
+  min_score: 0.50
+
+risk:
+  max_portfolio_drawdown: 0.08
+  cooldown_days: 5
+  transaction_cost: 0.0005

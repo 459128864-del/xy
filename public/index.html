@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ETF 动能雷达</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">MOMENTUM · ETF ROTATION</p>
+        <h1>ETF 动能雷达</h1>
+        <p class="subtitle">先判断市场，再寻找路径健康、趋势持续且回撤可控的强势资产。</p>
+      </div>
+      <div class="status">
+        <span id="liveDot"></span>
+        <div><strong id="statusText">正在连接行情</strong><small id="updatedAt">—</small></div>
+      </div>
+    </header>
+
+    <section class="summary">
+      <article><span>市场状态</span><strong id="regime">—</strong><small>四指数联合过滤</small></article>
+      <article><span>扫描标的</span><strong id="universeCount">—</strong><small>主流ETF候选池</small></article>
+      <article><span>当前领跑</span><strong id="leader">—</strong><small id="leaderScore">综合动能</small></article>
+      <article><span>模型风险预算</span><strong id="exposure">—</strong><small id="exposureNote">按市场状态调整</small></article>
+    </section>
+    <section id="marketBreadth" class="marketBreadth"></section>
+
+    <section class="portfolioPanel">
+      <div class="portfolioHead">
+        <div>
+          <p class="eyebrow">MODEL PORTFOLIO · CURRENT REGIME</p>
+          <h2>现阶段推荐组合</h2>
+          <p id="portfolioRationale">等待模型生成组合…</p>
+        </div>
+        <div class="portfolioActions">
+          <div id="reminderBadge" class="reminderBadge">无轮换提醒</div>
+          <button id="adoptPortfolio">将目标组合记为当前组合</button>
+        </div>
+      </div>
+      <div id="rotationAlerts" class="rotationAlerts"></div>
+      <div id="portfolioCards" class="portfolioCards"></div>
+    </section>
+
+    <section class="decision" id="decision">
+      <div>
+        <p class="eyebrow">TODAY'S LEADING SETUP</p>
+        <h2 id="decisionTitle">等待因子计算</h2>
+        <p id="decisionReason">—</p>
+      </div>
+      <div class="decisionGrid">
+        <p><span>操作倾向</span><strong id="decisionAction">—</strong></p>
+        <p><span>确认触发</span><strong id="decisionTrigger">—</strong></p>
+        <p><span>失效条件</span><strong id="decisionInvalidation">—</strong></p>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="tabs" id="categories"></div>
+      <label>最低日均成交额
+        <select id="liquidity">
+          <option value="0">不限</option>
+          <option value="50000000">5000万</option>
+          <option value="100000000" selected>1亿</option>
+          <option value="300000000">3亿</option>
+          <option value="500000000">5亿</option>
+        </select>
+      </label>
+      <button id="refresh">重算因子</button>
+    </section>
+
+    <section class="tableWrap">
+      <table>
+        <thead><tr>
+          <th>排名</th><th>ETF</th><th>实时价格</th><th>今日</th><th>综合分</th>
+          <th>生命周期</th><th>操作倾向</th><th>确认触发</th><th>失效条件</th><th>20日</th><th>60日</th>
+        </tr></thead>
+        <tbody id="rows"><tr><td colspan="11" class="loading">正在读取历史行情并计算因子…</td></tr></tbody>
+      </table>
+    </section>
+
+    <footer>
+      <p>综合分先做横截面选强，再按形成、加速、分歧、衰竭、反转调整排序。最近5日从收益动量中剔除，降低短期追高影响。</p>
+      <p>仓位区间是默认研究模板，不了解你的风险承受能力；公开行情可能延迟或中断，本工具不执行交易，不构成投资建议。</p>
+    </footer>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+version = 1
+name = "etf-rotation-v6"
+
+[setup]
+script = """
+npm install --no-package-lock
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r ETF-Quant-System/requirements.txt
+.venv/bin/python --version
+"""
+
+[[actions]]
+name = "启动 ETF 雷达"
+icon = "run"
+command = "PORT=8787 npm start"
+
+[[actions]]
+name = "运行全部测试"
+icon = "test"
+command = "npm test && (cd ETF-Quant-System && ../.venv/bin/python -m unittest discover -s test)"
+
+[[actions]]
+name = "运行 Python 回测测试"
+icon = "debug"
+command = "cd ETF-Quant-System && ../.venv/bin/python -m unittest discover -s test"
