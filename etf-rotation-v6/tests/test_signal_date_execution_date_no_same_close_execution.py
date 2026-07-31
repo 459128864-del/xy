@@ -41,6 +41,7 @@ class SignalDateExecutionDateNoSameCloseExecutionTest(unittest.TestCase):
                 "max_portfolio_drawdown": 1.0,
                 "cooldown_days": 1,
                 "transaction_cost": 0.0,
+                "slippage_bps": 0,
             },
         }
 
