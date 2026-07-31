@@ -33,6 +33,7 @@ def main() -> None:
         encoding="utf-8",
     )
     result["equity_curve"].to_csv(args.output / "equity_curve.csv", index=False)
+    result["execution_events"].to_csv(args.output / "execution_events.csv", index=False)
     print(json.dumps(result["metrics"], ensure_ascii=False, indent=2))
 
 
