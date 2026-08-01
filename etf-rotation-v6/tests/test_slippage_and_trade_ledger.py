@@ -22,7 +22,11 @@ class SlippageAndTradeLedgerTest(unittest.TestCase):
             "regime": ["attack"] * 4,
         })
         self.config = {
-            "strategy": {"rebalance_frequency": 2, "top_n": 1},
+            "strategy": {
+                "rebalance_frequency": 2,
+                "top_n": 1,
+                "minimum_history": 1,
+            },
             "factors": {
                 "momentum_windows": [1],
                 "momentum_weights": [1.0],

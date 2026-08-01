@@ -16,7 +16,11 @@ class SignalDateExecutionDateNoSameCloseExecutionTest(unittest.TestCase):
             "close": [100.0, 110.0, 121.0, 133.1, 146.41, 161.051],
         })
         self.config = {
-            "strategy": {"rebalance_frequency": 2, "top_n": 1},
+            "strategy": {
+                "rebalance_frequency": 2,
+                "top_n": 1,
+                "minimum_history": 1,
+            },
             "factors": {
                 "momentum_windows": [1],
                 "momentum_weights": [1.0],

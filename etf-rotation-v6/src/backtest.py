@@ -59,7 +59,11 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
         volatility_window=factor_cfg["volatility_window"],
         drawdown_window=factor_cfg["drawdown_window"],
     )
-    scored = score_factors(factors, factor_cfg["weights"])
+    scored = score_factors(
+        factors,
+        factor_cfg["weights"],
+        minimum_history=int(strategy["minimum_history"]),
+    )
     regimes = classify_regime(prices, **{
         "trend_window": config["regime"]["trend_window"],
         "breadth_threshold": config["regime"]["breadth_threshold"],
