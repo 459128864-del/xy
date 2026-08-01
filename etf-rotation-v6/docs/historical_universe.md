@@ -25,7 +25,7 @@ CSV 必须包含：
 
 配套 JSON 元数据必须包含：
 
-- `source_name`、`source_url`；
+- `provider_id`、`source_name`、`source_url`；
 - `authoritative: true`；
 - `scope: all_sh_sz_etfs`；
 - `complete_through`：目录完整覆盖日期，不得早于回测结束日。
@@ -56,3 +56,22 @@ cd etf-rotation-v6
 
 满足门禁只证明历史池与行情覆盖的工程条件成立，不代表策略有效，也不替代复权、
 停牌、清盘价值和样本外验证。
+
+## 聚宽目录适配器
+
+项目批准的首个全生命周期目录供应商适配器是 JoinQuant JQData。它是第三方数据服务，
+不是交易所官方原始档案；项目依据其公开接口契约和退市哨兵校验接入。官方文档说明
+`get_all_securities(types=['fund'], date=None)` 返回上市日期、退市日期和基金细分类型；
+传入具体日期只会返回该日仍上市证券，因此适配器固定使用 `date=None`。
+
+凭据只从环境变量读取：
+
+```bash
+export JQDATA_USERNAME="你的聚宽账号"
+export JQDATA_PASSWORD="你的聚宽密码"
+cd etf-rotation-v6
+.venv/bin/python scripts/fetch_joinquant_universe.py
+```
+
+脚本不会输出账号或密码。默认结果写入 Git 忽略的 `data/real/`。输出必须包含已知退市
+ETF `510220`，否则立即拒绝该响应，防止误把当前存续名单当成全历史目录。

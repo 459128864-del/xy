@@ -85,6 +85,7 @@ class DataPipelineTest(unittest.TestCase):
             "historical_catalog_sha256": "a" * 64,
             "historical_catalog_metadata": {
                 "scope": "all_sh_sz_etfs", "authoritative": True,
+                "provider_id": "joinquant_jqdata",
                 "source_name": "exchange", "source_url": "https://example.test",
                 "complete_through": "2024-01-31",
                 "expected_symbol_count": 2,
@@ -110,6 +111,7 @@ class DataPipelineTest(unittest.TestCase):
                 "historical_catalog_sha256": "a" * 64,
                 "historical_catalog_metadata": {
                     "scope": "all_sh_sz_etfs", "authoritative": True,
+                    "provider_id": "joinquant_jqdata",
                     "source_name": "current list",
                     "source_url": "https://example.test/current",
                     "complete_through": "2024-01-31",
@@ -118,6 +120,26 @@ class DataPipelineTest(unittest.TestCase):
                 "historical_coverage": {
                     "eligible_symbols": 2, "observed_symbols": 2,
                     "catalog_symbols": 2, "delisted_symbols": 0,
+                },
+            })
+
+    def test_unapproved_catalog_provider_cannot_pass_claim_gate(self) -> None:
+        with self.assertRaisesRegex(ValueError, "survivorship"):
+            require_survivorship_controlled({
+                "historical_universe_complete": True,
+                "survivorship_bias_controlled": True,
+                "historical_catalog_sha256": "a" * 64,
+                "historical_catalog_metadata": {
+                    "provider_id": "self_declared",
+                    "scope": "all_sh_sz_etfs", "authoritative": True,
+                    "source_name": "unknown",
+                    "source_url": "https://example.test/unknown",
+                    "complete_through": "2024-01-31",
+                    "expected_symbol_count": 2,
+                },
+                "historical_coverage": {
+                    "eligible_symbols": 2, "observed_symbols": 2,
+                    "catalog_symbols": 2, "delisted_symbols": 1,
                 },
             })
 
@@ -184,6 +206,7 @@ class DataPipelineTest(unittest.TestCase):
                 catalog_metadata={
                     "scope": "all_sh_sz_etfs",
                     "authoritative": True,
+                    "provider_id": "joinquant_jqdata",
                     "complete_through": "2024-01-31",
                     "source_name": "test exchange catalogue",
                     "source_url": "https://example.test/catalog",
