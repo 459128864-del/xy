@@ -24,6 +24,20 @@ class PositionLimitsTest(unittest.TestCase):
         self.assertLessEqual(weights["weight"].max(), 0.4)
         self.assertLessEqual(weights["weight"].sum(), 0.7)
 
+    def test_position_cap_residual_remains_cash(self) -> None:
+        scored = pd.DataFrame({
+            "date": pd.to_datetime(["2024-01-01"] * 2),
+            "symbol": ["A", "B"], "score": [0.9, 0.8], "rank": [1.0, 2.0],
+        })
+        regimes = pd.DataFrame({
+            "date": pd.to_datetime(["2024-01-01"]), "regime": ["attack"],
+        })
+        weights = construct_weights(
+            scored, regimes, top_n=2, min_score=0.5, max_position=0.3,
+            exposure_by_regime={"attack": 1.0},
+        )
+        self.assertAlmostEqual(weights["weight"].sum(), 0.6)
+
 
 if __name__ == "__main__":
     unittest.main()

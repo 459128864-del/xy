@@ -50,6 +50,23 @@ AkShare 官方文档说明该接口按日频返回指定 ETF、指定区间的�
 真实数据接入只改善数据基础，不证明策略有效。必须完成 Benchmark、样本外和分阶段验证
 后，才能评价研究表现。
 
+## 历史ETF池与幸存者偏差门禁
+
+当前下载配置明确写入 `fixed_research_universe`、`historical_universe_complete: false` 和
+`survivorship_bias_controlled: false`。清单校验器会拒绝把该数据描述为“已控制幸存者
+偏差”。上交所当前ETF列表不等于历史成员池；终止上市ETF只能从交易所公告等历史资料
+补录。只有同时纳入沪深交易所历史上市、终止上市、合并和更名记录，并校验对应存续期
+行情后，才允许把两个布尔字段改为 `true`。
+
+可核验的官方资料入口包括：
+
+- 上交所ETF列表：https://www.sse.com.cn/assortment/fund/etf/list/
+- 上交所基金公告：https://etf.sse.com.cn/disclosure/ssenotice/
+- 深交所基金业务信息：https://fund.szse.cn/
+
+这项门禁解决“误把固定存活池当无偏历史池”的工程问题，但不会伪造当前公开接口没有
+提供的完整退市目录；在完整目录接入前，所有绩效仍必须标注固定研究池限制。
+
 ## 基准数据
 
 正式比较基准为沪深300指数（`csi000300`），通过 AkShare 的

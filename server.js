@@ -2,7 +2,7 @@ import http from "node:http";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildAdvice, buildModelPortfolio, calculateRawFactor, scoreUniverse } from "./factors.js";
+import { buildAdvice, buildModelPortfolio, calculateRawFactor, classifyMarketRegime, scoreUniverse } from "./factors.js";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 8787);
@@ -202,29 +202,26 @@ async function getScan(force = false) {
     const signal = !item ? "未知" :
       item.factor.lastClose > item.factor.ma60 && item.factor.ret20 > 0 ? "转强" :
       item.factor.lastClose < item.factor.ma60 && item.factor.ret20 < 0 ? "转弱" : "中性";
-    return { code, name, signal, phase: item?.phase || "未知", change: item?.factor.ret20 ?? null, basis: "20/60日趋势" };
+    return { code, name, signal, phase: item?.phase || "未知", change: item?.factor.ret20 ?? null, basis: "20/60日趋势", participatesInRegime: true };
   });
   marketBreadth.push({
     code: "899050", name: "北证50",
     signal: !north50 ? "未知" : north50.changePct > 0.3 ? "转强" : north50.changePct < -0.3 ? "转弱" : "中性",
-    phase: "实时监测", change: north50 ? north50.changePct / 100 : null, basis: "指数实时涨跌"
+    phase: "实时监测", change: north50 ? north50.changePct / 100 : null,
+    basis: "实时观察（不参与状态判定）", participatesInRegime: false
   });
-  const usableBreadth = marketBreadth.filter((x) => x.signal !== "未知");
-  const strongCount = usableBreadth.filter((x) => x.signal === "转强").length;
-  const weakCount = usableBreadth.filter((x) => x.signal === "转弱").length;
-  const threshold = usableBreadth.length >= 4 ? 3 : 2;
-  const regime = usableBreadth.length < 3 ? "未知" :
-    strongCount >= threshold ? "进攻" : weakCount >= threshold ? "防守" : "均衡";
+  const regime = classifyMarketRegime(marketBreadth);
   const valid = scored.map((item) => ({ ...item, advice: buildAdvice(item, regime) }));
   const modelPortfolio = buildModelPortfolio(valid, regime);
-  let currentPortfolio = await readCurrentPortfolio();
-  if (!currentPortfolio) currentPortfolio = await saveCurrentPortfolio(modelPortfolio);
+  const currentPortfolio = await readCurrentPortfolio();
   const rotationReminders = comparePortfolios(currentPortfolio, modelPortfolio, valid);
   const allocationGuide = regime === "进攻"
     ? { exposure: "50%–80%", single: "单只ETF原则上不超过20%", note: "允许持有强势，但不追单日脉冲" }
     : regime === "防守"
       ? { exposure: "0%–30%", single: "单只ETF原则上不超过10%", note: "现金、债券及等待的权重更高" }
-      : { exposure: "30%–50%", single: "单只ETF原则上不超过15%", note: "分批参与，只增加已确认的趋势" };
+      : regime === "均衡"
+        ? { exposure: "30%–50%", single: "单只ETF原则上不超过15%", note: "分批参与，只增加已确认的趋势" }
+        : { exposure: "0%", single: "不建立新仓", note: "信息不足，保持现金并等待日线信号完整" };
   cache.scan = {
     generatedAt: new Date().toISOString(), regime, marketBreadth, north50, allocationGuide, rows: valid,
     modelPortfolio, currentPortfolio, rotationReminders,

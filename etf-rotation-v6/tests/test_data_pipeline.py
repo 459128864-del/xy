@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.data_pipeline import fetch_universe, validate_price_data, write_dataset
+from src.data_pipeline import (
+    fetch_universe, require_survivorship_controlled, validate_price_data, write_dataset,
+)
 
 
 class DataPipelineTest(unittest.TestCase):
@@ -69,6 +71,16 @@ class DataPipelineTest(unittest.TestCase):
             self.assertEqual(len(manifest["sha256"]), 64)
             self.assertEqual(manifest["summary"], summary)
             self.assertEqual(manifest["adjustment"], "qfq")
+            self.assertFalse(manifest["historical_universe_complete"])
+            self.assertFalse(manifest["survivorship_bias_controlled"])
+            with self.assertRaisesRegex(ValueError, "survivorship"):
+                require_survivorship_controlled(manifest)
+
+    def test_complete_historical_manifest_passes_research_claim_gate(self) -> None:
+        require_survivorship_controlled({
+            "historical_universe_complete": True,
+            "survivorship_bias_controlled": True,
+        })
 
 
 if __name__ == "__main__":

@@ -6,6 +6,9 @@ start_date: "20100101"
 end_date: "20260731"
 output: data/real/etf_daily.csv
 manifest: data/real/manifest.json
+universe_scope: fixed_research_universe
+historical_universe_complete: false
+survivorship_bias_controlled: false
 
 benchmark:
   symbol: sh000300

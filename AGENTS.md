@@ -4,7 +4,9 @@
 
 - 本项目是 ETF 量化轮动系统，包含根目录 JavaScript 实时雷达、
   `etf-rotation-v6` Python 研究回测和 `ETF-Quant-System` 历史研究框架。
-- 在唯一策略实现尚未确认前，不得默认三套实现的因子、仓位或交易规则一致。
+- `etf-rotation-v6` 是策略定义、参数、回测和研究结论的唯一真源。
+- 根目录 JavaScript 仅是独立实时雷达，不得用 V6 回测为其建议背书；
+  `ETF-Quant-System` 仅为历史兼容研究框架，不得作为当前 V6 绩效来源。
 - 风险控制优先于提高历史收益。不得以提高样本内收益为理由削弱风控、扩大前视边界
   或忽略交易成本。
 - 本项目仅用于研究和教育。不得自动连接券商或执行实盘下单。
@@ -51,6 +53,7 @@
 ## 仓库协作
 
 - 修改前先检查 `git status`，保留用户已有和未跟踪的工作。
-- 不得把 `etf-rotation-v6`、`ETF-Quant-System` 和根目录 JavaScript 代码视为可互换实现。
+- 不得把 `etf-rotation-v6`、`ETF-Quant-System` 和根目录 JavaScript 代码视为可互换实现，
+  也不得把非 V6 输出标记为 V6 结果。
 - 策略定义、参数含义或执行口径冲突时，先更新 `docs/unknowns.md` 并请求确认。
 - 审计基线见 `docs/repo_audit.md`；开发门禁见 `docs/development_workflow.md`。
