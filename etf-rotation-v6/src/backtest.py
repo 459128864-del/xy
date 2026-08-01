@@ -34,7 +34,13 @@ def drift_weights(
     asset_returns: pd.Series,
 ) -> pd.Series:
     """Return pre-trade close weights after asset returns and zero-return cash."""
-    aligned_returns = asset_returns.reindex(previous_weights.index).fillna(0.0)
+    aligned_returns = asset_returns.reindex(previous_weights.index)
+    missing_held = previous_weights.gt(1e-12) & aligned_returns.isna()
+    if missing_held.any():
+        raise ValueError(
+            f"missing return for held assets: {list(previous_weights.index[missing_held])}"
+        )
+    aligned_returns = aligned_returns.fillna(0.0)
     cash_weight = 1.0 - float(previous_weights.sum())
     portfolio_gross_factor = cash_weight + float(
         (previous_weights * (1.0 + aligned_returns)).sum()
@@ -42,6 +48,28 @@ def drift_weights(
     if portfolio_gross_factor <= 0.0:
         raise ValueError("portfolio gross value must remain positive")
     return previous_weights * (1.0 + aligned_returns) / portfolio_gross_factor
+
+
+def validate_execution_prices(
+    weight_changes: pd.Series,
+    close_prices: pd.Series,
+    *,
+    epsilon: float = 1e-12,
+) -> None:
+    """Reject changing an asset weight when its raw close is unavailable."""
+    unavailable = weight_changes.abs().gt(epsilon) & close_prices.reindex(
+        weight_changes.index
+    ).isna()
+    if unavailable.any():
+        raise ValueError(
+            f"cannot execute without close prices: {list(weight_changes.index[unavailable])}"
+        )
+
+
+def build_valuation_returns(price_matrix: pd.DataFrame) -> pd.DataFrame:
+    """Value suspensions at last close and recognize the full move on resumption."""
+    valuation_prices = price_matrix.ffill()
+    return valuation_prices.pct_change(fill_method=None)
 
 
 def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
@@ -78,7 +106,7 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
     )
 
     price_matrix = prices.pivot(index="date", columns="symbol", values="close").sort_index()
-    returns = price_matrix.pct_change(fill_method=None).fillna(0.0)
+    returns = build_valuation_returns(price_matrix)
     target_matrix = targets.pivot(index="date", columns="symbol", values="weight")
     target_matrix = target_matrix.reindex(index=returns.index, columns=returns.columns).fillna(0.0)
     rebalance = int(strategy["rebalance_frequency"])
@@ -99,8 +127,8 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
     previous_date = pd.NaT
     for date_index, date in enumerate(returns.index):
         # The weights held before this close earn the return ending at this close.
-        daily_return = float((current_weights * returns.loc[date]).sum())
         pre_trade_weights = drift_weights(current_weights, returns.loc[date])
+        daily_return = float((current_weights * returns.loc[date].fillna(0.0)).sum())
 
         signal_date = None
         if date in execution_schedule:
@@ -116,12 +144,14 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
             if should_trade
             else pre_trade_weights
         )
+        if should_trade:
+            validate_execution_prices(weight_changes, price_matrix.loc[date], epsilon=epsilon)
         weight_changes = desired - pre_trade_weights
         turnover = float(weight_changes.abs().sum()) if should_trade else 0.0
         commission = turnover * commission_rate
         slippage = turnover * slippage_rate
         total_cost = commission + slippage
-        net_return = daily_return - total_cost
+        net_return = (1.0 + daily_return) * (1.0 - total_cost) - 1.0
         equity *= 1.0 + net_return
         records.append((
             date,

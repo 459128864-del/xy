@@ -138,6 +138,13 @@ def write_dataset(
         "requested_end_date": str(config["end_date"]),
         "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
         "sha256": digest,
+        "universe_scope": config.get("universe_scope", "unspecified"),
+        "historical_universe_complete": bool(
+            config.get("historical_universe_complete", False)
+        ),
+        "survivorship_bias_controlled": bool(
+            config.get("survivorship_bias_controlled", False)
+        ),
         "summary": summary,
         "notes": [
             "No pre-listing rows are synthesized.",
@@ -149,3 +156,13 @@ def write_dataset(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def require_survivorship_controlled(manifest: dict[str, object]) -> None:
+    """Prevent a fixed/current universe from being presented as bias-controlled."""
+    if not manifest.get("historical_universe_complete") or not manifest.get(
+        "survivorship_bias_controlled"
+    ):
+        raise ValueError(
+            "historical universe is incomplete; survivorship-bias-controlled claims are prohibited"
+        )

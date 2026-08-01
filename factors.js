@@ -177,12 +177,23 @@ export function buildAdvice(item, regime = "均衡") {
   };
 }
 
+export function classifyMarketRegime(marketBreadth) {
+  const usable = marketBreadth.filter((item) => item.participatesInRegime !== false && item.signal !== "未知");
+  if (usable.length < 3) return "未知";
+  const strongCount = usable.filter((item) => item.signal === "转强").length;
+  const weakCount = usable.filter((item) => item.signal === "转弱").length;
+  const threshold = usable.length >= 4 ? 3 : 2;
+  return strongCount >= threshold ? "进攻" : weakCount >= threshold ? "防守" : "均衡";
+}
+
 export function buildModelPortfolio(rows, regime = "均衡") {
   const config = regime === "进攻"
-    ? { exposure: 80, slots: 4, weights: [0.30, 0.25, 0.25, 0.20], order: ["科技", "宽基", "制造", "金融", "周期", "消费", "跨境", "风格", "商品", "债券"] }
+    ? { exposure: 80, slots: 4, weights: [0.25, 0.25, 0.25, 0.25], maxSingle: 20, order: ["科技", "宽基", "制造", "金融", "周期", "消费", "跨境", "风格", "商品", "债券"] }
     : regime === "防守"
-      ? { exposure: 30, slots: 3, weights: [0.50, 0.30, 0.20], order: ["债券", "金融", "风格", "宽基", "消费", "商品", "跨境", "科技", "周期", "制造"] }
-      : { exposure: 50, slots: 4, weights: [0.30, 0.25, 0.25, 0.20], order: ["宽基", "金融", "风格", "消费", "科技", "债券", "商品", "周期", "制造", "跨境"] };
+      ? { exposure: 30, slots: 3, weights: [1 / 3, 1 / 3, 1 / 3], maxSingle: 10, order: ["债券", "金融", "风格", "宽基", "消费", "商品", "跨境", "科技", "周期", "制造"] }
+      : regime === "均衡"
+        ? { exposure: 50, slots: 4, weights: [0.30, 0.25, 0.25, 0.20], maxSingle: 15, order: ["宽基", "金融", "风格", "消费", "科技", "债券", "商品", "周期", "制造", "跨境"] }
+        : { exposure: 0, slots: 0, weights: [], maxSingle: 0, order: [] };
 
   const eligible = rows.filter((x) =>
     ["形成", "加速"].includes(x.phase) &&
@@ -197,10 +208,8 @@ export function buildModelPortfolio(rows, regime = "均衡") {
     if (selected.length >= config.slots) break;
   }
 
-  const rawWeights = config.weights.slice(0, selected.length);
-  const weightTotal = rawWeights.reduce((a, b) => a + b, 0) || 1;
   const positions = selected.map((item, index) => {
-    const weight = Math.round(config.exposure * rawWeights[index] / weightTotal);
+    const weight = Math.min(config.maxSingle, Math.round(config.exposure * config.weights[index] * 10) / 10);
     const reason = [
       `${item.phase}阶段`,
       `综合分${item.trendScore.toFixed(1)}`,

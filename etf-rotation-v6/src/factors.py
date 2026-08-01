@@ -8,8 +8,10 @@ import pandas as pd
 
 def _efficiency(close: pd.Series, window: int) -> pd.Series:
     displacement = close.diff(window).abs()
-    path = close.diff().abs().rolling(window).sum()
-    return displacement.div(path.replace(0, np.nan)).fillna(0.0)
+    path = close.diff().abs().rolling(window, min_periods=window).sum()
+    efficiency = displacement.div(path.replace(0, np.nan))
+    # A fully observed flat path has zero efficiency; warm-up remains missing.
+    return efficiency.mask(path.eq(0.0) & displacement.notna(), 0.0)
 
 
 def _rolling_drawdown(close: pd.Series, window: int) -> pd.Series:

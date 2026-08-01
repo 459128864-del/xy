@@ -135,6 +135,26 @@ class SlippageAndTradeLedgerTest(unittest.TestCase):
         self.assertEqual(metrics["average_holding_period"], 1.0)
         self.assertAlmostEqual(metrics["average_turnover_per_trade"], 1.0)
 
+    def test_market_return_and_execution_cost_use_one_multiplicative_equity_path(self) -> None:
+        config = deepcopy(self.config)
+        config["strategy"]["rebalance_frequency"] = 1
+        prices = self.prices.copy()
+        prices["close"] = [100.0, 100.0, 110.0, 110.0]
+        targets = self.targets.copy()
+        targets["weight"] = [1.0, 0.0, 0.0, 0.0]
+        placeholder = pd.DataFrame()
+        with (
+            patch("src.backtest.calculate_factors", return_value=placeholder),
+            patch("src.backtest.score_factors", return_value=placeholder),
+            patch("src.backtest.classify_regime", return_value=placeholder),
+            patch("src.backtest.construct_weights", return_value=targets),
+        ):
+            result = run_backtest(prices, config)
+        expected_execution_day_return = 1.10 * (1.0 - 0.0015) - 1.0
+        self.assertAlmostEqual(
+            result["equity_curve"].loc[2, "return"], expected_execution_day_return
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
