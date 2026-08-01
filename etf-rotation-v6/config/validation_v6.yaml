@@ -1,0 +1,10 @@
+methodology:
+  parameter_selection: none
+  test_years: 1
+  step_years: 1
+  rolling_train_years: 5
+
+market_regime:
+  lookback_days: 126
+  bull_threshold: 0.10
+  bear_threshold: -0.10
