@@ -23,6 +23,7 @@ historical_catalog:
     - source
   metadata_required:
     - source_name
+    - provider_id
     - source_url
     - authoritative
     - scope

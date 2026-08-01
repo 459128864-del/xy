@@ -15,6 +15,7 @@ REQUIRED_PRICE_COLUMNS = ["date", "symbol", "close"]
 REQUIRED_UNIVERSE_COLUMNS = [
     "symbol", "name", "listing_date", "delisting_date", "source"
 ]
+APPROVED_HISTORICAL_UNIVERSE_PROVIDERS = {"joinquant_jqdata"}
 
 
 def load_historical_universe(path: Path) -> pd.DataFrame:
@@ -241,7 +242,7 @@ def write_dataset(
             raise ValueError("historical catalog metadata is required")
         required_metadata = {
             "source_name", "source_url", "authoritative", "scope",
-            "complete_through", "expected_symbol_count",
+            "complete_through", "expected_symbol_count", "provider_id",
         }
         missing_metadata = required_metadata.difference(catalog_metadata)
         if missing_metadata:
@@ -252,6 +253,8 @@ def write_dataset(
             raise ValueError("historical catalog scope must be all_sh_sz_etfs")
         if not catalog_metadata.get("authoritative"):
             raise ValueError("historical catalog source must be authoritative")
+        if catalog_metadata.get("provider_id") not in APPROVED_HISTORICAL_UNIVERSE_PROVIDERS:
+            raise ValueError("historical catalog provider is not approved")
         complete_through = pd.Timestamp(
             catalog_metadata.get("complete_through")
         ).normalize()
@@ -320,6 +323,7 @@ def require_survivorship_controlled(manifest: dict[str, object]) -> None:
         and isinstance(metadata, dict)
         and metadata.get("scope") == "all_sh_sz_etfs"
         and metadata.get("authoritative") is True
+        and metadata.get("provider_id") in APPROVED_HISTORICAL_UNIVERSE_PROVIDERS
         and bool(metadata.get("source_name"))
         and bool(metadata.get("source_url"))
         and bool(metadata.get("complete_through"))
