@@ -3,7 +3,7 @@
 > 更新时间：2026-08-01
 > 当前状态：持续开发中
 > 当前主分支：`main`
-> 当前功能分支：`codex/add-slippage-and-ledger`
+> 当前功能分支：`codex/enforce-minimum-history`
 
 ## 一、项目目标
 
@@ -62,15 +62,22 @@ main
 - 同时修复权重自然漂移、免费每日再平衡、真实 turnover、现金保留和成交事件过滤。
 - 已通过 Pull Request 合并。
 
-### 当前待合并
-
 #### `codex/add-slippage-and-ledger`
 
 - 新增滑点模型、成交台账 `trade_log.csv`、分项成本和成交统计。
 - 当前提交：`adee6ca feat(backtest): add slippage model and trade ledger`。
 - 本地与远程功能分支已同步。
 - 测试全部通过。
-- 当前状态：等待 Pull Request Review/Merge；不得直接合并到 `main`。
+- 已通过 Pull Request #4 合并。
+
+### 当前开发
+
+#### `codex/enforce-minimum-history`
+
+- 每只 ETF 独立累计历史观察数。
+- 历史不足或关键因子尚未形成的 ETF 不参与当日评分与组合选择。
+- 不使用未来数据补足过去资格。
+- 当前状态：实现与测试已完成，等待提交和 Pull Request。
 
 ### 分支清理状态
 
@@ -94,7 +101,7 @@ main
 
 尚未实现或尚未完成：
 
-- `minimum_history` 真正生效
+- 正确执行 `minimum_history` 暖机资格
 - 真实 ETF 历史数据
 - Benchmark 与超额收益
 - 样本外回测
@@ -174,7 +181,7 @@ abs(target_weight - previous_weight) > epsilon
 | 测试组 | 结果 |
 |---|---:|
 | Node | 5/5 通过 |
-| Python V6 全部测试 | 23/23 通过 |
+| Python V6 全部测试 | 29/29 通过 |
 | 旧 Python 框架 | 1/1 通过 |
 | 滑点与成交台账定向测试 | 6/6 通过 |
 | T+1 成交与权重漂移定向测试 | 13/13 通过 |
@@ -261,10 +268,11 @@ risk:
 
 ## 十、下一阶段路线
 
-### Phase 4：`minimum_history`
+### Phase 4：`minimum_history`（当前已实现，等待PR）
 
-目标：真正启用 `minimum_history`，上市历史不足的 ETF 不得参与排名。不得通过修改
-因子或提高样本收益绕过暖机规则。
+已实现 `minimum_history`：上市历史不足或关键因子未形成的 ETF 不得参与排名；规则按
+每只 ETF 独立计算，且不会因未来新增数据改变过去资格。不得通过修改因子或提高样本
+收益绕过暖机规则。
 
 ### Phase 5：真实 ETF 历史数据
 
@@ -305,7 +313,7 @@ Sharpe。不得同时改动多个因素，也不得只按总收益判断改善�
 - 策略可信度：当前仅使用 sample 数据，不能评价真实投资效果。
 - 当前主要矛盾：工程回测能力已经明显完善，但真实历史数据、ETF 历史池和样本外验证
   尚未建立。
-- 下一阶段重点：先完成 `minimum_history` 和数据规范，再接入真实 ETF 历史数据；不要
+- 下一阶段重点：合并 `minimum_history` 后完成数据规范并接入真实 ETF 历史数据；不要
   继续增加策略复杂度。
 
 > 当前所有 sample 回测结果均属于工程验证，不代表真实投资效果，也不得用于实盘决策。
