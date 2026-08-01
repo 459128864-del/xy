@@ -103,6 +103,21 @@ def fetch_universe(
     return prices, summary
 
 
+def normalize_akshare_index(raw: pd.DataFrame, *, symbol: str) -> pd.DataFrame:
+    """Normalize an AKShare daily-index response for benchmark comparison."""
+    required = {"date", "close"}
+    missing = required.difference(raw.columns)
+    if missing:
+        raise ValueError(f"provider response missing columns: {sorted(missing)}")
+    frame = raw.loc[:, ["date", "close"]].copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="raise")
+    frame["close"] = pd.to_numeric(frame["close"], errors="raise")
+    frame["symbol"] = str(symbol)
+    frame = frame.sort_values("date").reset_index(drop=True)
+    validate_price_data(frame)
+    return frame
+
+
 def write_dataset(
     prices: pd.DataFrame,
     summary: dict[str, object],
