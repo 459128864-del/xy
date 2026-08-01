@@ -14,6 +14,7 @@ node_modules/
 
 # Local runtime portfolio data
 /data/
+/etf-rotation-v6/data/real/
 
 # macOS
 .DS_Store
