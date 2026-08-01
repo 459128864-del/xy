@@ -111,8 +111,7 @@ main
 - `minimum_history` 已按每只标的自身历史执行
 - 历史时点完整ETF池及退市、合并、更名数据
 - 沪深300 Benchmark、超额收益、跟踪误差和信息比率
-- 样本外回测
-- Walk Forward / Rolling 验证
+- 样本外、Walk Forward / Rolling 和牛熊震荡分段框架（当前被回撤重复触发问题阻断）
 - 停牌、退市、历史 ETF 池和幸存者偏差规则
 - 滑点参数的真实市场校准
 
@@ -292,9 +291,11 @@ risk:
 正式基准为沪深300指数，按共同交易日计算基准收益、超额收益、跟踪误差和信息比率；
 基准不参与策略信号。验证记录见 `etf-rotation-v6/docs/benchmark_validation.md`。
 
-### Phase 7：样本外验证
+### Phase 7：样本外验证（框架完成，结果受阻）
 
-实施 Walk Forward、Rolling 以及牛市、熊市、震荡市分阶段验证。
+已实施固定参数 Walk Forward、Rolling 以及牛市、熊市、震荡市分阶段验证。验证发现
+`DrawdownGuard` 冷却后立即重复触发并永久清仓，须先修复再复验。记录见
+`etf-rotation-v6/docs/out_of_sample_validation.md`。
 
 ### Phase 8：V6.1
 
