@@ -34,6 +34,7 @@ def main() -> None:
     )
     result["equity_curve"].to_csv(args.output / "equity_curve.csv", index=False)
     result["execution_events"].to_csv(args.output / "execution_events.csv", index=False)
+    result["trade_log"].to_csv(args.output / "trade_log.csv", index=False)
     print(json.dumps(result["metrics"], ensure_ascii=False, indent=2))
 
 

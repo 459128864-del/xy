@@ -33,3 +33,4 @@ risk:
   max_portfolio_drawdown: 0.08
   cooldown_days: 5
   transaction_cost: 0.0005
+  slippage_bps: 5
