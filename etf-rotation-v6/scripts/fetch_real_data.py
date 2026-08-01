@@ -14,7 +14,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.data_pipeline import fetch_universe, normalize_akshare_index, write_dataset
+from src.data_pipeline import (
+    fetch_universe, load_historical_universe, normalize_akshare_index,
+    write_dataset,
+)
 
 
 def main() -> None:
@@ -26,6 +29,16 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--benchmark-output", type=Path)
     parser.add_argument("--benchmark-only", action="store_true")
+    parser.add_argument(
+        "--historical-universe-catalog",
+        type=Path,
+        help="authoritative CSV with symbol/name/listing_date/delisting_date/source",
+    )
+    parser.add_argument(
+        "--catalog-metadata",
+        type=Path,
+        help="JSON declaring source, all_sh_sz_etfs scope, authority and coverage date",
+    )
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
@@ -34,15 +47,47 @@ def main() -> None:
 
     import akshare as ak
 
+    historical_catalog = None
+    catalog_metadata = None
+    fetch_config = config
+    if args.historical_universe_catalog or args.catalog_metadata:
+        if not args.historical_universe_catalog or not args.catalog_metadata:
+            parser.error(
+                "--historical-universe-catalog and --catalog-metadata are required together"
+            )
+        historical_catalog = load_historical_universe(
+            args.historical_universe_catalog
+        )
+        catalog_metadata = json.loads(
+            args.catalog_metadata.read_text(encoding="utf-8")
+        )
+        start = pd.Timestamp(str(config["start_date"]))
+        end = pd.Timestamp(str(config["end_date"]))
+        overlaps = historical_catalog["listing_date"].le(end) & (
+            historical_catalog["delisting_date"].isna()
+            | historical_catalog["delisting_date"].gt(start)
+        )
+        fetch_config = dict(config)
+        fetch_config["universe"] = [
+            {
+                "symbol": row.symbol,
+                "name": row.name,
+                "category": "historical_universe",
+            }
+            for row in historical_catalog.loc[overlaps].itertuples(index=False)
+        ]
+
     summary = None
     if not args.benchmark_only:
-        prices, summary = fetch_universe(config, ak.fund_etf_hist_em)
+        prices, summary = fetch_universe(fetch_config, ak.fund_etf_hist_em)
         write_dataset(
             prices,
             summary,
             output_path=output,
             manifest_path=manifest,
             config=config,
+            historical_catalog=historical_catalog,
+            catalog_metadata=catalog_metadata,
         )
     benchmark_cfg = config["benchmark"]
     benchmark_raw = ak.stock_zh_index_daily(symbol=benchmark_cfg["symbol"])

@@ -10,6 +10,25 @@ universe_scope: fixed_research_universe
 historical_universe_complete: false
 survivorship_bias_controlled: false
 
+# A survivorship-controlled research run must pass both files explicitly to
+# scripts/fetch_real_data.py.  The repository does not bundle licensed market
+# catalogues or raw prices.
+historical_catalog:
+  required_scope: all_sh_sz_etfs
+  required_columns:
+    - symbol
+    - name
+    - listing_date
+    - delisting_date
+    - source
+  metadata_required:
+    - source_name
+    - source_url
+    - authoritative
+    - scope
+    - complete_through
+    - expected_symbol_count
+
 benchmark:
   symbol: sh000300
   name: 沪深300指数
