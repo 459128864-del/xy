@@ -7,6 +7,13 @@ end_date: "20260731"
 output: data/real/etf_daily.csv
 manifest: data/real/manifest.json
 
+benchmark:
+  symbol: sh000300
+  name: 沪深300指数
+  provider: akshare
+  interface: stock_zh_index_daily
+  output: data/real/benchmark_000300.csv
+
 universe:
   - symbol: "510300"
     name: 沪深300ETF
