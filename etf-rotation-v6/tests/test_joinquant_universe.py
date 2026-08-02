@@ -4,8 +4,9 @@ from datetime import date
 import pandas as pd
 
 from src.joinquant_universe import (
-    build_joinquant_metadata, fetch_joinquant_etf_catalog,
-    normalize_joinquant_etf_catalog,
+    build_joinquant_metadata, build_joinquant_price_fetcher,
+    fetch_joinquant_etf_catalog, normalize_joinquant_etf_catalog,
+    to_joinquant_security,
 )
 
 
@@ -52,6 +53,32 @@ class JoinQuantUniverseTest(unittest.TestCase):
         self.assertEqual(metadata["provider_id"], "joinquant_jqdata")
         self.assertEqual(metadata["expected_symbol_count"], 2)
         self.assertEqual(metadata["complete_through"], "2026-08-01")
+
+    def test_exchange_symbol_mapping_is_explicit(self) -> None:
+        self.assertEqual(to_joinquant_security("510300"), "510300.XSHG")
+        self.assertEqual(to_joinquant_security("159915"), "159915.XSHE")
+        with self.assertRaises(ValueError):
+            to_joinquant_security("000300")
+
+    def test_price_fetcher_uses_pre_adjustment_and_skips_paused_fill(self) -> None:
+        calls = []
+
+        def get_price(*args, **kwargs):
+            calls.append((args, kwargs))
+            return pd.DataFrame(
+                {"close": [1.0, 1.1]},
+                index=pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            )
+
+        fetcher = build_joinquant_price_fetcher(get_price)
+        result = fetcher(
+            symbol="510300", period="daily", start_date="20240101",
+            end_date="20240131", adjust="qfq",
+        )
+        self.assertEqual(list(result.columns), ["日期", "收盘"])
+        self.assertEqual(calls[0][0], ("510300.XSHG",))
+        self.assertTrue(calls[0][1]["skip_paused"])
+        self.assertEqual(calls[0][1]["fq"], "pre")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,50 @@ import pandas as pd
 KNOWN_DELISTED_ETFS = {"510220"}
 
 
+def to_joinquant_security(symbol: str) -> str:
+    code = str(symbol).strip()
+    if len(code) != 6 or not code.isdigit():
+        raise ValueError(f"invalid ETF symbol: {symbol}")
+    if code.startswith("1"):
+        return f"{code}.XSHE"
+    if code.startswith("5"):
+        return f"{code}.XSHG"
+    raise ValueError(f"unsupported Shanghai/Shenzhen ETF symbol: {symbol}")
+
+
+def normalize_joinquant_price(raw: pd.DataFrame) -> pd.DataFrame:
+    """Convert one JQData daily close response to the AKShare fetcher contract."""
+    if "close" not in raw.columns:
+        raise ValueError("JoinQuant price response missing close")
+    frame = raw.loc[:, ["close"]].reset_index()
+    date_column = "time" if "time" in frame.columns else frame.columns[0]
+    frame = frame.rename(columns={date_column: "日期", "close": "收盘"})
+    frame["日期"] = pd.to_datetime(frame["日期"], errors="raise")
+    frame["收盘"] = pd.to_numeric(frame["收盘"], errors="raise")
+    return frame
+
+
+def build_joinquant_price_fetcher(get_price: Callable[..., pd.DataFrame]) -> Callable[..., pd.DataFrame]:
+    """Build a no-forward-fill, pre-adjusted daily price fetcher."""
+    def fetcher(
+        *, symbol: str, period: str, start_date: str, end_date: str,
+        adjust: str,
+    ) -> pd.DataFrame:
+        if period != "daily" or adjust != "qfq":
+            raise ValueError("JoinQuant adapter supports daily qfq prices only")
+        raw = get_price(
+            to_joinquant_security(symbol),
+            start_date=pd.Timestamp(start_date).date(),
+            end_date=pd.Timestamp(end_date).date(),
+            frequency="daily",
+            fields=["close"],
+            skip_paused=True,
+            fq="pre",
+        )
+        return normalize_joinquant_price(raw)
+    return fetcher
+
+
 def normalize_joinquant_etf_catalog(raw: pd.DataFrame) -> pd.DataFrame:
     """Normalize ``get_all_securities(['fund'], date=None)`` output.
 

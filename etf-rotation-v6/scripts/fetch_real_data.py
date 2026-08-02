@@ -15,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.data_pipeline import (
-    fetch_universe, load_historical_universe, normalize_akshare_index,
-    write_dataset,
+    build_fetch_config, fetch_universe, load_historical_universe,
+    normalize_akshare_index, write_dataset,
 )
 
 
@@ -61,21 +61,7 @@ def main() -> None:
         catalog_metadata = json.loads(
             args.catalog_metadata.read_text(encoding="utf-8")
         )
-        start = pd.Timestamp(str(config["start_date"]))
-        end = pd.Timestamp(str(config["end_date"]))
-        overlaps = historical_catalog["listing_date"].le(end) & (
-            historical_catalog["delisting_date"].isna()
-            | historical_catalog["delisting_date"].gt(start)
-        )
-        fetch_config = dict(config)
-        fetch_config["universe"] = [
-            {
-                "symbol": row.symbol,
-                "name": row.name,
-                "category": "historical_universe",
-            }
-            for row in historical_catalog.loc[overlaps].itertuples(index=False)
-        ]
+        fetch_config = build_fetch_config(config, historical_catalog)
 
     summary = None
     if not args.benchmark_only:

@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.data_pipeline import (
-    fetch_universe, load_historical_universe, point_in_time_universe,
+    build_fetch_config, fetch_universe, load_historical_universe, point_in_time_universe,
     require_survivorship_controlled, validate_historical_coverage,
     validate_price_data, write_dataset,
 )
@@ -83,6 +83,8 @@ class DataPipelineTest(unittest.TestCase):
             "historical_universe_complete": True,
             "survivorship_bias_controlled": True,
             "historical_catalog_sha256": "a" * 64,
+            "universe_scope": "point_in_time_all_sh_sz_etfs",
+            "catalog_validation_mode": "point_in_time_universe",
             "historical_catalog_metadata": {
                 "scope": "all_sh_sz_etfs", "authoritative": True,
                 "provider_id": "joinquant_jqdata",
@@ -109,6 +111,8 @@ class DataPipelineTest(unittest.TestCase):
                 "historical_universe_complete": True,
                 "survivorship_bias_controlled": True,
                 "historical_catalog_sha256": "a" * 64,
+                "universe_scope": "point_in_time_all_sh_sz_etfs",
+                "catalog_validation_mode": "point_in_time_universe",
                 "historical_catalog_metadata": {
                     "scope": "all_sh_sz_etfs", "authoritative": True,
                     "provider_id": "joinquant_jqdata",
@@ -129,6 +133,8 @@ class DataPipelineTest(unittest.TestCase):
                 "historical_universe_complete": True,
                 "survivorship_bias_controlled": True,
                 "historical_catalog_sha256": "a" * 64,
+                "universe_scope": "point_in_time_all_sh_sz_etfs",
+                "catalog_validation_mode": "point_in_time_universe",
                 "historical_catalog_metadata": {
                     "provider_id": "self_declared",
                     "scope": "all_sh_sz_etfs", "authoritative": True,
@@ -164,6 +170,32 @@ class DataPipelineTest(unittest.TestCase):
             {"ACTIVE", "NEW"},
         )
 
+    def test_catalog_does_not_replace_fixed_research_universe(self) -> None:
+        catalog = pd.DataFrame({
+            "symbol": ["A", "B", "OLD"],
+            "name": ["Alpha", "Beta", "Old"],
+            "listing_date": pd.to_datetime(["2020-01-01"] * 3),
+            "delisting_date": pd.to_datetime([None, None, "2024-01-15"]),
+        })
+        result = build_fetch_config(self.config, catalog)
+        self.assertEqual(result["universe"], self.config["universe"])
+
+    def test_explicit_point_in_time_mode_expands_lifecycle_candidates(self) -> None:
+        catalog = pd.DataFrame({
+            "symbol": ["A", "B", "FUTURE", "OLD"],
+            "name": ["Alpha", "Beta", "Future", "Old"],
+            "listing_date": pd.to_datetime([
+                "2020-01-01", "2020-01-01", "2024-02-01", "2020-01-01"
+            ]),
+            "delisting_date": pd.to_datetime([None, None, None, "2023-12-31"]),
+        })
+        config = dict(self.config)
+        config["universe_scope"] = "point_in_time_all_sh_sz_etfs"
+        result = build_fetch_config(config, catalog)
+        self.assertEqual(
+            [item["symbol"] for item in result["universe"]], ["A", "B"]
+        )
+
     def test_historical_coverage_requires_delisted_price_history(self) -> None:
         catalog = pd.DataFrame({
             "symbol": ["ACTIVE", "DELISTED"],
@@ -182,7 +214,7 @@ class DataPipelineTest(unittest.TestCase):
                 prices, catalog, start_date="2024-01-01", end_date="2024-01-31"
             )
 
-    def test_validated_catalog_writes_evidence_backed_manifest(self) -> None:
+    def test_point_in_time_mode_writes_evidence_backed_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
             catalog_path = directory_path / "catalog.csv"
@@ -196,12 +228,14 @@ class DataPipelineTest(unittest.TestCase):
             prices, summary = fetch_universe(self.config, self.fetcher)
             output = directory_path / "prices.csv"
             manifest_path = directory_path / "manifest.json"
+            point_in_time_config = dict(self.config)
+            point_in_time_config["universe_scope"] = "point_in_time_all_sh_sz_etfs"
             write_dataset(
                 prices,
                 summary,
                 output_path=output,
                 manifest_path=manifest_path,
-                config=self.config,
+                config=point_in_time_config,
                 historical_catalog=catalog,
                 catalog_metadata={
                     "scope": "all_sh_sz_etfs",
@@ -217,6 +251,45 @@ class DataPipelineTest(unittest.TestCase):
             self.assertTrue(manifest["survivorship_bias_controlled"])
             self.assertEqual(manifest["historical_coverage"]["delisted_symbols"], 1)
             require_survivorship_controlled(manifest)
+
+    def test_fixed_universe_catalog_check_does_not_claim_bias_control(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            catalog_path = directory_path / "catalog.csv"
+            catalog_path.write_text(
+                "symbol,name,listing_date,delisting_date,source\n"
+                "A,Alpha,2020-01-01,,provider\n"
+                "B,Beta,2020-01-01,2025-01-01,provider\n"
+                "OLD,Old,2010-01-01,2020-01-01,provider\n",
+                encoding="utf-8",
+            )
+            catalog = load_historical_universe(catalog_path)
+            prices, summary = fetch_universe(self.config, self.fetcher)
+            output = directory_path / "prices.csv"
+            manifest_path = directory_path / "manifest.json"
+            metadata = {
+                "scope": "all_sh_sz_etfs",
+                "authoritative": True,
+                "provider_id": "joinquant_jqdata",
+                "complete_through": "2024-01-31",
+                "source_name": "test provider",
+                "source_url": "https://example.test/catalog",
+                "expected_symbol_count": 3,
+            }
+            write_dataset(
+                prices, summary, output_path=output, manifest_path=manifest_path,
+                config=self.config, historical_catalog=catalog,
+                catalog_metadata=metadata,
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertFalse(manifest["historical_universe_complete"])
+            self.assertFalse(manifest["survivorship_bias_controlled"])
+            self.assertEqual(
+                manifest["catalog_validation_mode"], "fixed_universe_lifecycle_only"
+            )
+            self.assertEqual(manifest["historical_coverage"]["configured_symbols"], 2)
+            with self.assertRaisesRegex(ValueError, "survivorship"):
+                require_survivorship_controlled(manifest)
 
 
 if __name__ == "__main__":
