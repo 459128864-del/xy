@@ -16,6 +16,7 @@ REQUIRED_UNIVERSE_COLUMNS = [
     "symbol", "name", "listing_date", "delisting_date", "source"
 ]
 APPROVED_HISTORICAL_UNIVERSE_PROVIDERS = {"joinquant_jqdata"}
+POINT_IN_TIME_UNIVERSE_SCOPE = "point_in_time_all_sh_sz_etfs"
 
 
 def load_historical_universe(path: Path) -> pd.DataFrame:
@@ -65,6 +66,27 @@ def point_in_time_universe(catalog: pd.DataFrame, date: object) -> set[str]:
         | catalog["delisting_date"].gt(timestamp)
     )
     return set(catalog.loc[eligible, "symbol"].astype(str))
+
+
+def build_fetch_config(config: dict, catalog: pd.DataFrame) -> dict:
+    """Expand candidates only for an explicitly selected all-ETF universe mode."""
+    if config.get("universe_scope") != POINT_IN_TIME_UNIVERSE_SCOPE:
+        return dict(config)
+    start = pd.Timestamp(str(config["start_date"])).normalize()
+    end = pd.Timestamp(str(config["end_date"])).normalize()
+    overlaps = catalog["listing_date"].le(end) & (
+        catalog["delisting_date"].isna() | catalog["delisting_date"].gt(start)
+    )
+    expanded = dict(config)
+    expanded["universe"] = [
+        {
+            "symbol": row.symbol,
+            "name": row.name,
+            "category": "historical_universe",
+        }
+        for row in catalog.loc[overlaps].itertuples(index=False)
+    ]
+    return expanded
 
 
 def validate_historical_coverage(
@@ -117,6 +139,40 @@ def validate_historical_coverage(
     }
 
 
+def validate_fixed_universe_lifecycles(
+    prices: pd.DataFrame,
+    catalog: pd.DataFrame,
+    *,
+    configured_symbols: set[str],
+) -> dict[str, object]:
+    """Validate a fixed research pool without claiming selection-bias control."""
+    validate_price_data(prices)
+    catalog_symbols = set(catalog["symbol"].astype(str))
+    missing_catalog = sorted(configured_symbols - catalog_symbols)
+    if missing_catalog:
+        raise ValueError(f"configured symbols missing from historical catalog: {missing_catalog}")
+    observed = set(prices["symbol"].astype(str))
+    if observed != configured_symbols:
+        raise ValueError("price symbols do not exactly match configured fixed universe")
+    lifecycle = catalog.set_index("symbol")
+    merged = prices.loc[:, ["date", "symbol"]].copy()
+    merged["date"] = pd.to_datetime(merged["date"]).dt.normalize()
+    merged = merged.join(lifecycle[["listing_date", "delisting_date"]], on="symbol")
+    outside = merged["date"].lt(merged["listing_date"]) | (
+        merged["delisting_date"].notna()
+        & merged["date"].ge(merged["delisting_date"])
+    )
+    if outside.any():
+        raise ValueError("fixed-universe prices fall outside ETF lifecycle")
+    return {
+        "configured_symbols": len(configured_symbols),
+        "observed_symbols": len(observed),
+        "catalog_symbols": len(catalog),
+        "catalog_delisted_symbols": int(catalog["delisting_date"].notna().sum()),
+        "selection_bias_controlled": False,
+    }
+
+
 def normalize_akshare_etf(
     raw: pd.DataFrame,
     *,
@@ -124,6 +180,7 @@ def normalize_akshare_etf(
     name: str,
     category: str,
     adjustment: str,
+    source: str = "akshare:fund_etf_hist_em/eastmoney",
 ) -> pd.DataFrame:
     """Normalize one fund_etf_hist_em response without filling missing dates."""
     required = {"日期", "收盘"}
@@ -138,7 +195,7 @@ def normalize_akshare_etf(
     frame["symbol"] = str(symbol)
     frame["name"] = name
     frame["category"] = category
-    frame["source"] = "akshare:fund_etf_hist_em/eastmoney"
+    frame["source"] = source
     frame["adjustment"] = adjustment
     return frame.sort_values("date").reset_index(drop=True)
 
@@ -198,6 +255,7 @@ def fetch_universe(
             name=item["name"],
             category=item["category"],
             adjustment=config["adjust"],
+            source=f"{config['provider']}:{config['interface']}",
         ))
     prices = pd.concat(frames, ignore_index=True).sort_values(
         ["symbol", "date"]
@@ -231,9 +289,8 @@ def write_dataset(
     historical_catalog: pd.DataFrame | None = None,
     catalog_metadata: dict[str, object] | None = None,
 ) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    prices.to_csv(output_path, index=False)
-    digest = hashlib.sha256(output_path.read_bytes()).hexdigest()
+    dataset_bytes = prices.to_csv(index=False).encode("utf-8")
+    digest = hashlib.sha256(dataset_bytes).hexdigest()
     coverage = None
     catalog_digest = None
     controlled = False
@@ -263,19 +320,30 @@ def write_dataset(
         requested_end = pd.Timestamp(str(config["end_date"])).normalize()
         if complete_through < requested_end:
             raise ValueError("historical catalog does not cover requested end date")
-        coverage = validate_historical_coverage(
-            prices,
-            historical_catalog,
-            start_date=str(config["start_date"]),
-            end_date=str(config["end_date"]),
-        )
         if int(catalog_metadata["expected_symbol_count"]) != len(historical_catalog):
             raise ValueError("historical catalog symbol count does not match metadata")
-        if coverage["delisted_symbols"] <= 0:
+        catalog_delisted = int(historical_catalog["delisting_date"].notna().sum())
+        if catalog_delisted <= 0:
             raise ValueError("complete historical catalog must include delisted ETFs")
         catalog_bytes = historical_catalog.to_csv(index=False).encode("utf-8")
         catalog_digest = hashlib.sha256(catalog_bytes).hexdigest()
-        controlled = True
+        if config.get("universe_scope") == POINT_IN_TIME_UNIVERSE_SCOPE:
+            coverage = validate_historical_coverage(
+                prices,
+                historical_catalog,
+                start_date=str(config["start_date"]),
+                end_date=str(config["end_date"]),
+            )
+            controlled = True
+        else:
+            configured_symbols = {
+                str(item["symbol"]) for item in config.get("universe", [])
+            }
+            coverage = validate_fixed_universe_lifecycles(
+                prices,
+                historical_catalog,
+                configured_symbols=configured_symbols,
+            )
     elif config.get("survivorship_bias_controlled"):
         raise ValueError(
             "cannot claim survivorship control without a validated historical catalog"
@@ -296,17 +364,23 @@ def write_dataset(
         "historical_catalog_sha256": catalog_digest,
         "historical_catalog_metadata": catalog_metadata,
         "historical_coverage": coverage,
+        "catalog_validation_mode": (
+            "point_in_time_universe" if controlled else "fixed_universe_lifecycle_only"
+        ),
         "summary": summary,
         "notes": [
             "No pre-listing rows are synthesized.",
             "No missing trading dates are forward-filled.",
             (
-                "Point-in-time lifecycle coverage was validated."
+                "Point-in-time all-ETF lifecycle coverage was validated."
                 if controlled else
-                "A complete authoritative historical ETF catalogue was not supplied."
+                "Fixed-universe lifecycles were checked; selection bias remains uncontrolled."
             ),
         ],
     }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(dataset_bytes)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -319,6 +393,8 @@ def require_survivorship_controlled(manifest: dict[str, object]) -> None:
     metadata = manifest.get("historical_catalog_metadata")
     valid_evidence = (
         isinstance(coverage, dict)
+        and manifest.get("universe_scope") == POINT_IN_TIME_UNIVERSE_SCOPE
+        and manifest.get("catalog_validation_mode") == "point_in_time_universe"
         and coverage.get("eligible_symbols") == coverage.get("observed_symbols")
         and isinstance(metadata, dict)
         and metadata.get("scope") == "all_sh_sz_etfs"

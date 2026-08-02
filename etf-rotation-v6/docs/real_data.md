@@ -37,6 +37,14 @@ AkShare 官方文档说明该接口按日频返回指定 ETF、指定区间的�
 
 验证时可用 `--output` 和 `--manifest` 写入临时目录，避免污染项目数据目录。
 
+东方财富端点不可用时，可在已设置 JQData 环境变量的终端运行：
+
+```bash
+.venv/bin/python scripts/fetch_joinquant_real_data.py
+```
+
+JQData 入口保持当前固定六只研究池，使用前复权日线并跳过供应商的停牌前值填充。
+
 ## 质量门禁
 
 - 必须包含 `date`、`symbol`、`close`。
@@ -58,6 +66,10 @@ AkShare 官方文档说明该接口按日频返回指定 ETF、指定区间的�
 补录。只有同时纳入沪深交易所历史上市、终止上市、合并和更名记录，并校验对应存续期
 行情后，系统才会在 manifest 中生成两个 `true`；配置文件不能直接绕过门禁。详细契约
 见 `docs/historical_universe.md`。
+
+全量历史目录不会自动消除固定六只研究池的事后选择偏差。固定池 manifest 只记录
+`fixed_universe_lifecycle_only`，两个幸存者偏差结论字段继续为 `false`。全市场点时池是
+明确的另一种研究模式，不得与当前 V6 基准混称。
 
 可核验的官方资料入口包括：
 

@@ -6,6 +6,9 @@ start_date: "20100101"
 end_date: "20260731"
 output: data/real/etf_daily.csv
 manifest: data/real/manifest.json
+# fixed_research_universe never claims survivorship-bias control, even when
+# lifecycle dates are verified.  point_in_time_all_sh_sz_etfs is a distinct
+# candidate-universe research mode and must never be enabled implicitly.
 universe_scope: fixed_research_universe
 historical_universe_complete: false
 survivorship_bias_controlled: false

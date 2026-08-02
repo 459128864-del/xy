@@ -3,7 +3,7 @@
 > 更新时间：2026-08-01
 > 当前状态：持续开发中
 > 当前主分支：`main`
-> 当前功能分支：`codex/add-joinquant-universe-provider`
+> 当前功能分支：`codex/fix-universe-mode-boundary`
 
 ## 一、项目目标
 
@@ -272,6 +272,9 @@ risk:
 
 历史目录已有 JoinQuant JQData 适配器，固定使用全历史查询并以退市 ETF 510220 作为
 完整性哨兵。运行仍需用户自己的合法 JQData 账号授权，凭据不得写入仓库。
+
+当前 V6 仍是固定六只研究池。全量目录只核验其生命周期，不会静默扩展候选池；只有
+独立配置明确选择 `point_in_time_all_sh_sz_etfs` 才能运行全市场点时池研究。
 
 ### Phase 6：Benchmark（已完成）
 

@@ -75,3 +75,21 @@ cd etf-rotation-v6
 
 脚本不会输出账号或密码。默认结果写入 Git 忽略的 `data/real/`。输出必须包含已知退市
 ETF `510220`，否则立即拒绝该响应，防止误把当前存续名单当成全历史目录。
+
+生成目录后，使用同一账号获取当前 V6 固定池行情：
+
+```bash
+cd etf-rotation-v6
+.venv/bin/python scripts/fetch_joinquant_real_data.py
+```
+
+该命令使用前复权日线并设置 `skip_paused=True`，不会使用供应商自动填充的停牌价格。
+
+## 固定池与点时全市场池不能混用
+
+当前 `config/data_sources.yaml` 明确使用 `fixed_research_universe`。导入全量目录只核验
+六只标的的生命周期，不得静默把候选池替换成全部 ETF，也不得声称已控制样本选择偏差。
+
+只有独立研究配置明确写入 `point_in_time_all_sh_sz_etfs` 时，数据脚本才会按生命周期
+扩展为全市场点时池。该模式会改变策略候选空间，结果不属于当前固定池 V6 基准，必须
+单独命名、回测和评审。
