@@ -12,6 +12,7 @@ from .base import Adjustment, PriceProvider, ProviderCapabilities
 from .exceptions import ProviderNotConnectedError
 from .schemas import validate_daily_prices, validate_realtime_prices
 from .ths_auth import THSCredentials
+from .ths_http_transport import THSHTTPPriceTransport
 
 
 class THSPriceTransport(Protocol):
@@ -55,7 +56,7 @@ class THSPriceProvider(PriceProvider):
     ) -> "THSPriceProvider":
         return cls(
             THSCredentials.from_environment(environment),
-            transport=transport,
+            transport=transport or THSHTTPPriceTransport(),
         )
 
     @property

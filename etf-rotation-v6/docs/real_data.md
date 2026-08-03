@@ -45,6 +45,18 @@ AkShare 官方文档说明该接口按日频返回指定 ETF、指定区间的�
 
 JQData 入口保持当前固定六只研究池，使用前复权日线并跳过供应商的停牌前值填充。
 
+已获得 iFinD HTTP 权限时，也可在本地设置 `THS_ACCESS_TOKEN` 或
+`THS_REFRESH_TOKEN` 后运行：
+
+```bash
+.venv/bin/python scripts/fetch_ths_real_data.py
+```
+
+该入口通过官方 `cmd_history_quotation` 获取日线，使用 `Fill=Blank`，并按供应商单次
+数据量限制自动分块。当前同样只允许固定研究池；同花顺全量历史ETF目录所需的超级
+命令协议尚未确认，不得用该入口声称已控制幸存者偏差。详细口径见
+`docs/ths_http_provider.md`。
+
 ## 质量门禁
 
 - 必须包含 `date`、`symbol`、`close`。
