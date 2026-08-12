@@ -18,3 +18,5 @@ node_modules/
 
 # macOS
 .DS_Store
+.data/
+data/

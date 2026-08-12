@@ -24,3 +24,8 @@ command = "npm test && (cd ETF-Quant-System && ../.venv/bin/python -m unittest d
 name = "运行 Python 回测测试"
 icon = "debug"
 command = "cd ETF-Quant-System && ../.venv/bin/python -m unittest discover -s test"
+
+[[actions]]
+name = "启动日内T雷达"
+icon = "run"
+command = "npm run intraday-t"
