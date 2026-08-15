@@ -144,9 +144,9 @@ def run_backtest(prices: pd.DataFrame, config: dict) -> dict[str, object]:
             if should_trade
             else pre_trade_weights
         )
+        weight_changes = desired - pre_trade_weights
         if should_trade:
             validate_execution_prices(weight_changes, price_matrix.loc[date], epsilon=epsilon)
-        weight_changes = desired - pre_trade_weights
         turnover = float(weight_changes.abs().sum()) if should_trade else 0.0
         commission = turnover * commission_rate
         slippage = turnover * slippage_rate

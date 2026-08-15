@@ -105,6 +105,18 @@ class SignalDateExecutionDateNoSameCloseExecutionTest(unittest.TestCase):
             0.1,
         )
 
+    def test_current_weight_change_requires_execution_close(self) -> None:
+        prices = self.prices.copy()
+        prices.loc[prices["date"].eq(self.dates[1]), "close"] = float("nan")
+        targets = pd.DataFrame({
+            "date": self.dates,
+            "symbol": ["A"] * len(self.dates),
+            "weight": [1.0] * len(self.dates),
+            "regime": ["attack"] * len(self.dates),
+        })
+        with self.assertRaisesRegex(ValueError, "without close prices"):
+            self._run_custom_prices_and_targets(prices, targets)
+
     def test_last_signal_date_without_execution_date_does_not_execute(self) -> None:
         matrix = pd.DataFrame({"A": [0.0] * 5}, index=self.dates[:5])
         schedule = build_execution_schedule(matrix, rebalance_frequency=2)
