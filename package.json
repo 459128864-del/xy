@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "intraday-t": "node intraday-t/server.js",
+    "test:intraday-t": "node --test intraday-t/test/*.test.js"
   },
   "engines": {
     "node": ">=18"
