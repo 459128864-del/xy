@@ -13,6 +13,10 @@ class ProviderNotConnectedError(DataProviderError):
     """The provider has no real API transport attached yet."""
 
 
+class ProviderRequestError(DataProviderError):
+    """A provider request failed before a usable response was received."""
+
+
 class ProviderDataError(DataProviderError):
     """A provider response cannot satisfy the canonical V6 data contract."""
 
